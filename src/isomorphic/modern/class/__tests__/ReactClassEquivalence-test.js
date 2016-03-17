@@ -28,6 +28,9 @@ describe('ReactClassEquivalence', function() {
   });
 
   it('tests the same thing for es6 classes and TypeScript', function() {
+    console.log(ts);
+    console.log("*******")
+    console.log(es6);
     expect(ts).toEqualSpecsIn(es6);
   });
 
