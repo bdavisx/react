@@ -17,14 +17,12 @@ describe('ReactDOMComponent', function() {
   var React;
 
   var ReactDOM;
-  var ReactDOMFeatureFlags;
   var ReactDOMServer;
 
   beforeEach(function() {
     jest.resetModuleRegistry();
     React = require('React');
     ReactDOM = require('ReactDOM');
-    ReactDOMFeatureFlags = require('ReactDOMFeatureFlags');
     ReactDOMServer = require('ReactDOMServer');
   });
 
@@ -190,7 +188,7 @@ describe('ReactDOMComponent', function() {
       expect(console.error.calls.length).toBe(2);
     });
 
-    it('should warn semi-nicely about NaN in style', function() {
+    it('should warn nicely about NaN in style', function() {
       spyOn(console, 'error');
 
       var style = {fontSize: NaN};
@@ -198,15 +196,9 @@ describe('ReactDOMComponent', function() {
       ReactDOM.render(<span style={style}></span>, div);
       ReactDOM.render(<span style={style}></span>, div);
 
-      expect(console.error.argsForCall.length).toBe(2);
+      expect(console.error.argsForCall.length).toBe(1);
       expect(console.error.argsForCall[0][0]).toEqual(
         'Warning: `NaN` is an invalid value for the `fontSize` css style property',
-      );
-      expect(console.error.argsForCall[1][0]).toEqual(
-        'Warning: `span` was passed a style object that has previously been ' +
-        'mutated. Mutating `style` is deprecated. Consider cloning it ' +
-        'beforehand. Check the `render` using <span>. Previous style: ' +
-        '{fontSize: NaN}. Mutated style: {fontSize: NaN}.'
       );
     });
 
@@ -244,16 +236,52 @@ describe('ReactDOMComponent', function() {
       expect(stubStyle.display).toEqual('');
     });
 
-    it('should skip child object attribute on web components', function() {
+    it('should skip reserved props on web components', function() {
       var container = document.createElement('div');
 
-      // Test initial render to null
-      ReactDOM.render(<my-component children={['foo']} />, container);
+      ReactDOM.render(
+        <my-component
+          children={['foo']}
+          suppressContentEditableWarning={true}
+        />,
+        container
+      );
       expect(container.firstChild.hasAttribute('children')).toBe(false);
+      expect(
+        container.firstChild.hasAttribute('suppressContentEditableWarning')
+      ).toBe(false);
 
-      // Test updates to null
-      ReactDOM.render(<my-component children={['foo']} />, container);
+      ReactDOM.render(
+        <my-component
+          children={['bar']}
+          suppressContentEditableWarning={false}
+        />,
+        container
+      );
       expect(container.firstChild.hasAttribute('children')).toBe(false);
+      expect(
+        container.firstChild.hasAttribute('suppressContentEditableWarning')
+      ).toBe(false);
+    });
+
+    it('should skip dangerouslySetInnerHTML on web components', function() {
+      var container = document.createElement('div');
+
+      ReactDOM.render(
+        <my-component dangerouslySetInnerHTML={{__html: 'hi'}} />,
+        container
+      );
+      expect(
+        container.firstChild.hasAttribute('dangerouslySetInnerHTML')
+      ).toBe(false);
+
+      ReactDOM.render(
+        <my-component dangerouslySetInnerHTML={{__html: 'bye'}} />,
+        container
+      );
+      expect(
+        container.firstChild.hasAttribute('dangerouslySetInnerHTML')
+      ).toBe(false);
     });
 
     it('should remove attributes', function() {
@@ -263,79 +291,6 @@ describe('ReactDOMComponent', function() {
       expect(container.firstChild.hasAttribute('height')).toBe(true);
       ReactDOM.render(<img />, container);
       expect(container.firstChild.hasAttribute('height')).toBe(false);
-    });
-
-    it('should remove known SVG camel case attributes', function() {
-      var container = document.createElement('div');
-      ReactDOM.render(<svg viewBox="0 0 100 100" />, container);
-
-      expect(container.firstChild.hasAttribute('viewBox')).toBe(true);
-      ReactDOM.render(<svg />, container);
-      expect(container.firstChild.hasAttribute('viewBox')).toBe(false);
-    });
-
-    it('should remove known SVG hyphenated attributes', function() {
-      var container = document.createElement('div');
-      ReactDOM.render(<svg clip-path="0 0 100 100" />, container);
-
-      expect(container.firstChild.hasAttribute('clip-path')).toBe(true);
-      ReactDOM.render(<svg />, container);
-      expect(container.firstChild.hasAttribute('clip-path')).toBe(false);
-    });
-
-    it('should remove arbitrary SVG hyphenated attributes', function() {
-      var container = document.createElement('div');
-      ReactDOM.render(<svg the-word="the-bird" />, container);
-
-      expect(container.firstChild.hasAttribute('the-word')).toBe(true);
-      ReactDOM.render(<svg />, container);
-      expect(container.firstChild.hasAttribute('the-word')).toBe(false);
-    });
-
-    it('should remove arbitrary SVG camel case attributes', function() {
-      var container = document.createElement('div');
-      ReactDOM.render(<svg theWord="theBird" />, container);
-
-      if (ReactDOMFeatureFlags.useCreateElement) {
-        // jsdom's svg parsing makes attributes lowercase, so only assert this
-        // in createElement mode...
-        expect(container.firstChild.hasAttribute('theWord')).toBe(true);
-      }
-      ReactDOM.render(<svg />, container);
-      expect(container.firstChild.hasAttribute('theWord')).toBe(false);
-    });
-
-    it('should remove SVG attributes that should have been hyphenated', function() {
-      spyOn(console, 'error');
-      var container = document.createElement('div');
-      ReactDOM.render(<svg clipPath="0 0 100 100" />, container);
-      expect(console.error.argsForCall.length).toBe(1);
-      expect(console.error.argsForCall[0][0]).toContain('clipPath');
-      expect(console.error.argsForCall[0][0]).toContain('clip-path');
-
-      expect(container.firstChild.hasAttribute('clip-path')).toBe(true);
-      ReactDOM.render(<svg />, container);
-      expect(container.firstChild.hasAttribute('clip-path')).toBe(false);
-    });
-
-    it('should remove namespaced SVG attributes', function() {
-      var container = document.createElement('div');
-      ReactDOM.render(
-        <svg>
-          <image xlinkHref="http://i.imgur.com/w7GCRPb.png" />
-        </svg>,
-        container
-      );
-
-      expect(container.firstChild.firstChild.hasAttributeNS(
-        'http://www.w3.org/1999/xlink',
-        'href'
-      )).toBe(true);
-      ReactDOM.render(<svg><image /></svg>, container);
-      expect(container.firstChild.firstChild.hasAttributeNS(
-        'http://www.w3.org/1999/xlink',
-        'href'
-      )).toBe(false);
     });
 
     it('should remove properties', function() {
@@ -407,99 +362,6 @@ describe('ReactDOMComponent', function() {
       ReactDOM.render(afterUpdate, container);
 
       expect(container.childNodes[0].getAttribute('myattr')).toBe('myval');
-    });
-
-    it('should update known hyphenated attributes for SVG tags', function() {
-      var container = document.createElement('div');
-
-      var beforeUpdate = <svg />;
-      ReactDOM.render(beforeUpdate, container);
-
-      var afterUpdate = <svg clip-path="url(#starlet)" />;
-      ReactDOM.render(afterUpdate, container);
-
-      expect(container.childNodes[0].getAttribute('clip-path')).toBe(
-        'url(#starlet)'
-      );
-    });
-
-    it('should update camel case attributes for SVG tags', function() {
-      var container = document.createElement('div');
-
-      var beforeUpdate = <svg />;
-      ReactDOM.render(beforeUpdate, container);
-
-      var afterUpdate = <svg viewBox="0 0 100 100" />;
-      ReactDOM.render(afterUpdate, container);
-
-      expect(container.childNodes[0].getAttribute('viewBox')).toBe(
-        '0 0 100 100'
-      );
-    });
-
-    it('should warn camel casing hyphenated attributes for SVG tags', function() {
-      spyOn(console, 'error');
-      var container = document.createElement('div');
-
-      var beforeUpdate = <svg />;
-      ReactDOM.render(beforeUpdate, container);
-
-      var afterUpdate = <svg clipPath="url(#starlet)" />;
-      ReactDOM.render(afterUpdate, container);
-
-      expect(container.childNodes[0].getAttribute('clip-path')).toBe(
-        'url(#starlet)'
-      );
-      expect(console.error.argsForCall.length).toBe(1);
-      expect(console.error.argsForCall[0][0]).toContain('clipPath');
-      expect(console.error.argsForCall[0][0]).toContain('clip-path');
-    });
-
-    it('should update arbitrary hyphenated attributes for SVG tags', function() {
-      var container = document.createElement('div');
-
-      var beforeUpdate = <svg />;
-      ReactDOM.render(beforeUpdate, container);
-
-      var afterUpdate = <svg the-word="the-bird" />;
-      ReactDOM.render(afterUpdate, container);
-
-      expect(container.childNodes[0].getAttribute('the-word')).toBe('the-bird');
-    });
-
-    it('should update arbitrary camel case attributes for SVG tags', function() {
-      var container = document.createElement('div');
-
-      var beforeUpdate = <svg />;
-      ReactDOM.render(beforeUpdate, container);
-
-      var afterUpdate = <svg theWord="theBird" />;
-      ReactDOM.render(afterUpdate, container);
-
-      expect(container.childNodes[0].getAttribute('theWord')).toBe('theBird');
-    });
-
-    it('should update namespaced SVG attributes', function() {
-      var container = document.createElement('div');
-
-      var beforeUpdate = (
-        <svg>
-          <image xlinkHref="http://i.imgur.com/w7GCRPb.png" />
-        </svg>
-      );
-      ReactDOM.render(beforeUpdate, container);
-
-      var afterUpdate = (
-        <svg>
-          <image xlinkHref="http://i.imgur.com/JvqCM2p.png" />
-        </svg>
-      );
-      ReactDOM.render(afterUpdate, container);
-
-      expect(container.firstChild.firstChild.getAttributeNS(
-        'http://www.w3.org/1999/xlink',
-        'href'
-      )).toBe('http://i.imgur.com/JvqCM2p.png');
     });
 
     it('should clear all the styles when removing `style`', function() {

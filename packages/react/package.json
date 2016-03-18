@@ -1,7 +1,7 @@
 {
   "name": "react",
   "description": "React is a JavaScript library for building user interfaces.",
-  "version": "0.15.0-alpha.1",
+  "version": "15.0.0-rc.2",
   "keywords": [
     "react"
   ],
@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "envify": "^3.0.0",
-    "fbjs": "^0.6.1"
+    "fbjs": "^0.8.0-alpha.2"
   },
   "browserify": {
     "transform": [
